@@ -1,3 +1,4 @@
+#include "Read.h"
 #include <iostream>
 #include <cstdint>
 #include <Windows.h>
@@ -9,43 +10,16 @@
 #include <string>
 using namespace std;
 
-// Магические константы
+// Магические 
 #define P32 0xb7e15163
 #define Q32 0x9e3779b9
 
 // Размер слова (в битах)
 #define w 32
 
-void writeToFile(const string& filename, const string& text) {
-    ofstream file(filename);
-    if (file.is_open()) {
-        file << text;
-        file.close();
-    }
-    else {
-        throw logic_error("Невозможно записать данные в файл: " + filename);
-    }
-}
-
-string readFromFile(const string& filename) {
-    ifstream file(filename);
-    string content;
-    if (file.is_open()) {
-        string line;
-        while (getline(file, line))
-        {
-            content += line + "\n";
-        }
-        file.close();
-        return content;
-    }
-    else {
-        throw logic_error("Невозможно прочитать файл: " + filename);
-    }
-}
 
 // Функция для преобразования строки в массив uint8_t
-void StringToKey(const std::string& key, uint8_t* K, int keySize) {
+void StringToKey(const string& key, uint8_t* K, int keySize) {
     for (int i = 0; i < keySize; i++) {
         K[i] = i < key.size() ? key[i] : 0;
     }
@@ -129,63 +103,74 @@ void RC6(const string& password1, const string& password2) {
 
     while (true) {
         try {
-            cout << "------RC6------" << endl
-                << "Select an action:" << endl
-                << "<1> Encrypt" << endl
-                << "<2> Decrypt" << endl
-                << "<3> Exit to the main menu" << endl;
+            
+            cout << "_________RC6_________" << endl
+                << "Выберите действие:" << endl
+                << "<1> Зашифровать" << endl
+                << "<2> Расшифровать" << endl
+                << "<3>Выход в главное меню" << endl
+                << "______________________" << endl;
             cin >> pick;
             if (cin.fail() || cin.peek() != '\n') {
                 throw logic_error("Input error!");
             }
             if (pick != 1 && pick != 2 && pick != 3) {
-                throw logic_error("You entered the wrong command!");
+                throw logic_error("Вы ввели неправильную команду!");
             }
 
             if (pick == 3) {
                 break; // Выход в главное меню
+                cin.ignore();
             }
 
-            cout << "Enter the encoding password: ";
+            cout << "Введите пароль для кодировки: ";
             cin >> pass1;
             if (pass1 != password1) {
-                throw logic_error("Incorrect password!");
+                throw logic_error("Неверный пароль!");
             }
-
+            system("cls");
             // Инициализация ключа, МИНИМАЛЬНАЯ ДЛИНА ПРИ ВВОДЕ 5 СИМВОЛОВ
             string key;
             cout << "Введите ключ: ";
+            cin.ignore(); // Очистка буфера ввода
             getline(cin, key);
             uint8_t K[16]; // Размер ключа 128 бит
             StringToKey(key, K, sizeof(K));
 
-            cout << "Input action:" << endl
-                << "<1> Enter text from the console" << endl
-                << "<2> Read text from a file" << endl;
+            cout << "Входное действие:" << endl
+                << "<1> Введите текст с консоли" << endl
+                << "<2> Чтение текста из файла" << endl;
             cin >> pickencode;
             if (cin.fail() || cin.peek() != '\n') {
-                throw logic_error("Input error!");
+                throw logic_error("Ошибка ввода!");
             }
 
             if (pickencode == 1) {
-                cout << "Enter the text: ";
+                cout << "Введите текст: ";
                 cin.ignore(); // Очистка буфера ввода
                 getline(cin, message);
+
+                // Сохранение введенного текста в файл
+                string originalFilename = "RC6original_input.txt";
+                writeToFile(originalFilename, message);
+                cout << "Введенный текст был записан в файл: " << originalFilename << endl;
+                
             }
             else if (pickencode == 2) {
-                cout << "Enter the file name: ";
+
+                cout << "Введите имя файла: ";
                 cin >> filename;
                 ifstream file(filename);
                 if (!file.is_open()) {
-                    throw runtime_error("Could not open file!");
+                    throw runtime_error("Не удалось открыть файл!");
                 }
                 getline(file, message, static_cast<char>(EOF));
                 file.close();
             }
             else {
-                throw logic_error("You entered the wrong command!");
+                throw logic_error("Вы ввели неправильную команду!");
             }
-
+           
             const int b = sizeof(Key);
             uint32_t L[b / (w / 8)];
             int c;
@@ -201,7 +186,7 @@ void RC6(const string& password1, const string& password2) {
                     Encrypt_RC6(A, B, C, D, S, r);
                     encoded.push_back({ A, B, C, D });
                 }
-                cout << "Encrypted:" << endl;
+      
                 // Запись зашифрованного текста в файл
                 ofstream encryptedFile("encrypted_rc6.txt");
                 if (encryptedFile.is_open()) {
@@ -209,17 +194,27 @@ void RC6(const string& password1, const string& password2) {
                         encryptedFile << hex << setw(8) << setfill('0') << block[0] << " ";
                     }
                     encryptedFile.close();
-                    cout << "The encrypted text has been written to encrypted_rc6.txt" << endl;
+                    cout << "Зашифрованный текст был записан на encrypted_rc6.txt" << endl;
+                    cin.ignore();
                 }
                 else {
-                    throw runtime_error("Failed to open file: encrypted_rc6.txt");
+                    throw runtime_error("Не удалось открыть файл: encrypted_rc6.txt");
+                    cin.ignore();
                 }
             }
             else if (pick == 2) { // Дешифрование
-      // Чтение зашифрованных данных из файла
+                
+                if (pass1 != password2) {
+                    throw logic_error("Неверный пароль для дешифровки!");
+                    cin.ignore();
+                }
+                 // Чтение зашифрованных данных из файла
+                encoded.clear();
                 ifstream encryptedFile("encrypted_rc6.txt");
+               
                 if (!encryptedFile.is_open()) {
-                    throw runtime_error("Could not open file: encrypted_rc6.txt");
+                    throw runtime_error("Не удалось открыть файл: encrypted_rc6.txt");
+                    cin.ignore();
                 }
 
                 string line;
@@ -245,10 +240,10 @@ void RC6(const string& password1, const string& password2) {
                         decryptedFile << static_cast<char>(A);
                     }
                     decryptedFile.close();
-                    cout << "The decrypted text has been written to decrypted_rc6.txt" << endl;
+                    cout << "Расшифрованный текст был записан на decrypted_rc6.txt" << endl;
                 }
                 else {
-                    throw runtime_error("Failed to open file: decrypted_rc6.txt");
+                    throw runtime_error("Не удалось открыть файл: decrypted_rc6.txt");
                 }
             }
         }
